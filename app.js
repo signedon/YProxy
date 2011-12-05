@@ -5,6 +5,7 @@
 
 var express = require('express'),
     request = require('request'),
+    http = require('http'),
     qs = require('querystring'),
     colors = require('colors'),
     _ = require('underscore'),
@@ -72,8 +73,54 @@ app.get('/:vid', function(req, res){
 
     console.log('Requesting stream'.bold.grey, video.grey);
 
-    request.get(video).pipe(res);
-    //req.pipe(request(video)).pipe(res);
+/*    try {
+      request.get(video).pipe(res);
+    } catch(e) {
+      console.log('eeeeeeeee', e);
+    }*/
+
+    try {
+      var host = /^http\:\/\/(.+)\//.exec(video),
+          path = video.slice(host[0].length - 1);
+    } catch(e){
+      console.log('errrrrrrrrrrrrr', e);
+      return;
+    }
+
+    var options = {
+      'host': host[1],
+      'port': 80,
+      'path': path,
+      'method': 'GET'
+    };
+
+    var v_request = http.request(options, function(resp){
+      res.headers = resp.headers;
+
+      res.connection.on('error', function(err){
+        console.log('error:', err);
+      });
+
+      res.connection.on('close', function(err){
+        console.log('CLIENT ABORTED');
+        resp.connection.destroy();
+        //res.connection.end();
+        return;
+      });
+
+      res.connection.on('end', function(err){
+        console.log('END');
+        resp.connection.destroy();
+        //res.connection.end();
+        return;
+      });
+
+      return resp.pipe(res);
+
+    });
+
+    v_request.end();
+
   });
 });
 
